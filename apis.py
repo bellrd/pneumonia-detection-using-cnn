@@ -71,8 +71,6 @@ def get_prediction():
     temp.prediction = answer
     temp.status = True
     db.session.commit()
-
-    # TODO: make db thinggy
     return response
 
 
