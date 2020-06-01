@@ -19,7 +19,7 @@ migrate = Migrate(app, db)
 
 from model import UserData
 
-import apis, views
+import apis,views
 
 if __name__ == '__main__':
     app.run()

@@ -3,6 +3,7 @@ from uuid import uuid4
 from flask import request, abort, send_from_directory
 from app import app, db, UserData
 from config import UPLOAD_ALLOWED_EXTENSION, UPLOAD_FOLDER
+from helper import predict
 
 
 def allowed_file(filename):
@@ -42,9 +43,52 @@ def upload_file():
 
 @app.route("/api/predict", methods=['POST'])
 def get_prediction():
-    raise NotImplementedError()
+    req_json = request.get_json()
+    file_id = req_json.get('id')
+    temp = UserData.query.filter(UserData.file_name.contains(file_id)).first()
+    file_name = temp.file_name
+    file_name = os.path.join(UPLOAD_FOLDER, file_name)
+    try:
+        result = predict(file_name)
+    except Exception as e:
+        temp.status = False
+        db.session.commit()
+    normal_prob, pneumonic_prob = result[2]
+    normal_percent, pneumonic_percent = result[2] * 100
+    answer = "Normal" if normal_percent.item() > pneumonic_percent.item() else "Penumonic"
+    response = {
+        "normal": {
+            "prob": round(normal_prob.item(), 2),
+            "percent": round(normal_percent.item(),2)
+        },
+        "pneumonic": {
+            "prob": round(pneumonic_prob.item(), 2),
+            "percent": round(pneumonic_percent.item(), 2)
+        },
+        "answer": answer
+    }
+
+    temp.prediction = answer
+    temp.status = True
+    db.session.commit()
+
+    # TODO: make db thinggy
+    return response
 
 
 @app.route("/api/feedback", methods=['POST'])
 def feedback():
-    raise NotImplementedError()
+    req_json = request.get_json()
+    file_id = req_json.get('id')
+    email = req_json.get('email')
+    review = req_json.get('review')
+    result = req_json.get('result')
+    review = email + "\n" + review
+    temp = UserData.query.filter(UserData.file_name.contains(file_id)).first()
+    temp.review = review
+    if result.lower() in ['correct']:
+        temp.is_correct = True
+    if result.lower() in ['incorrect']:
+        temp.is_correct = False
+    db.session.commit() 
+    return "Thank you for your feedback! ."
